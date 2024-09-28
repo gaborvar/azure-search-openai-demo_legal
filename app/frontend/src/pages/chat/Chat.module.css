@@ -18,6 +18,12 @@
     width: 100%;
 }
 
+.chatIcon {
+    max-height: 25vh;
+    margin-top: 4vh;
+    margin-bottom: 4vh;
+}
+
 .chatEmptyState {
     flex-grow: 1;
     display: flex;
@@ -105,6 +111,12 @@
 @media (min-width: 992px) {
     .container {
         margin-top: 1.25rem;
+    }
+
+    .chatIcon {
+        max-height: 10vh;
+        margin-top: 2vh;
+        margin-bottom: 2vh;
     }
 
     .chatEmptyState {

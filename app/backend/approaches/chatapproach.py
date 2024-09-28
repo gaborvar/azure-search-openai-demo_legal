@@ -7,6 +7,8 @@ from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 
 from approaches.approach import Approach
 
+import os
+
 
 class ChatApproach(Approach, ABC):
     query_prompt_few_shots: list[ChatCompletionMessageParam] = [
@@ -19,20 +21,20 @@ class ChatApproach(Approach, ABC):
 
     follow_up_questions_prompt_content = """Generate 3 very brief follow-up questions that the user would likely ask next.
     Enclose the follow-up questions in double angle brackets. Example:
-    <<Are there exclusions for prescriptions?>>
-    <<Which pharmacies can be ordered from?>>
-    <<What is the limit for over-the-counter medication?>>
+    <<Hogyan tudunk személyesen találkozni?>>
+    <<Mi a címe az irodának?>>
+    <<Melyik napokon és mikor fogadnak ügyfeleket?>>
     Do no repeat questions that have already been asked.
     Make sure the last question ends with ">>".
     """
 
     query_prompt_template = """Below is a history of the conversation so far, and a new question asked by the user that needs to be answered by searching in a knowledge base.
-    You have access to Azure AI Search index with 100's of documents.
+    You have access to Azure AI Search index with several documents.
     Generate a search query based on the conversation and the new question.
     Do not include cited source filenames and document names e.g info.txt or doc.pdf in the search query terms.
     Do not include any text inside [] or <<>> in the search query terms.
     Do not include any special characters like '+'.
-    If the question is not in English, translate the question to English before generating the search query.
+    If the question is not in Hungarian, translate the question to Hungarian before generating the search query.
     If you cannot generate a search query, return just the number 0.
     """
 
@@ -57,6 +59,23 @@ class ChatApproach(Approach, ABC):
         else:
             return override_prompt.format(follow_up_questions_prompt=follow_up_questions_prompt)
 
+    def append_to_file(json_asstring):      #  async?
+        filename = 'contactfound.txt'
+        json_data = json.loads(json_asstring)
+        tabbed_data = f"{json_data['firstname']}\t{json_data['lastname']}\t{json_data['phone']}\t{json_data['email']}\t{json_data['confirmedbyuser']}\t{json_data['contactpreference']}"
+
+        # Check if the file exists
+        if os.path.exists(filename):
+            # File exists, append the string as a new line
+            with open(filename, 'a', encoding='windows-1250') as file:
+                file.write(tabbed_data + '\n')
+        else:
+            # File does not exist, create it and write the string as a new line
+            with open(filename, 'w', encoding='windows-1250') as file:
+                file.write("Firstname\tLastname\tPhone\tEmail\tConfirmedByUser\tContactpreference\n")
+                file.write(tabbed_data + '\n')
+
+
     def get_search_query(self, chat_completion: ChatCompletion, user_query: str):
         response_message = chat_completion.choices[0].message
 
@@ -70,6 +89,21 @@ class ChatApproach(Approach, ABC):
                     search_query = arg.get("search_query", self.NO_RESPONSE)
                     if search_query != self.NO_RESPONSE:
                         return search_query
+                else:
+
+                            ######## extract fields through tool/functions arguments
+                    if function.name == 'contactdetails':
+                        self.append_to_file(function.arguments)
+
+                        function_call_result_message = {
+                            "role": "tool",
+                            "content": json.dumps({
+                                "Accepted": True
+                            }),
+                            "tool_call_id": tool.id
+                        }
+
+
         elif query_text := response_message.content:
             if query_text.strip() != self.NO_RESPONSE:
                 return query_text
@@ -164,3 +198,7 @@ class ChatApproach(Approach, ABC):
         overrides = context.get("overrides", {})
         auth_claims = context.get("auth_claims", {})
         return self.run_with_streaming(messages, overrides, auth_claims, session_state)
+
+
+
+
